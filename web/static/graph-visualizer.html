@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Go Research Assistant - Live Graph</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #58a6ff;
+            margin-bottom: 10px;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #21262d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .graph-container {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .graph-flow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .node {
+            background: #21262d;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .node.completed {
+            border-color: #238636;
+            background: #0d2818;
+        }
+        
+        .node.in-progress {
+            border-color: #f85149;
+            background: #2d1518;
+            animation: pulse 2s infinite;
+        }
+        
+        .node.pending {
+            border-color: #6e7681;
+            background: #21262d;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 5px #f85149; }
+            50% { box-shadow: 0 0 20px #f85149; }
+        }
+        
+        .arrow {
+            color: #6e7681;
+            font-size: 24px;
+            margin: 0 10px;
+        }
+        
+        .node-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .node-status {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .live-output {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'SF Mono', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .input-section {
+            background: #21262d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            color: #c9d1d9;
+            font-size: 14px;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #2ea043;
+        }
+        
+        button:disabled {
+            background: #6e7681;
+            cursor: not-allowed;
+        }
+        
+        .connection-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .connection-status.connected {
+            background: #238636;
+        }
+        
+        .connection-status.disconnected {
+            background: #f85149;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.error {
+            color: #f85149;
+        }
+        
+        .log-entry.success {
+            color: #238636;
+        }
+        
+        .log-entry.info {
+            color: #58a6ff;
+        }
+        
+        .log-entry.warning {
+            color: #d29922;
+        }
+        
+        .streaming-text {
+            color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .report-content {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .report-streaming {
+            color: #e6edf3;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .report-content h1, .report-content h2, .report-content h3 {
+            color: #58a6ff;
+            margin-top: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .report-content h1 {
+            border-bottom: 2px solid #30363d;
+            padding-bottom: 10px;
+        }
+        
+        .report-content h2 {
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .report-content ul, .report-content ol {
+            margin-left: 20px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .report-content p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .report-content strong {
+            color: #f0f6fc;
+            font-weight: bold;
+        }
+        
+        .report-progress {
+            color: #7c3aed;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+    </style>
+    
+    <!-- Showdown.js for markdown parsing (more reliable) -->
+    <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Go Research Assistant</h1>
+            <p>リアルタイムグラフ実行可視化</p>
+        </div>
+        
+        <div class="status-bar">
+            <div>
+                <span class="connection-status" id="connectionStatus"></span>
+                <span id="connectionText">接続中...</span>
+            </div>
+            <div>実行時間: <span id="executionTime">00:00</span></div>
+            <div>進捗: <span id="progress">0/4</span> ノード完了</div>
+        </div>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="queryInput" placeholder="調査したいトピックを入力してください..." />
+                <button id="startBtn" onclick="startResearch()">🔍 調査開始</button>
+            </div>
+        </div>
+        
+        <div class="graph-container">
+            <h3>📊 実行グラフ</h3>
+            <div class="graph-flow">
+                <div class="node pending" id="node-classify">
+                    <div class="node-title">🎯 意図判定</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-queries">
+                    <div class="node-title">🔍 クエリ生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-search">
+                    <div class="node-title">🌐 並行検索</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-report">
+                    <div class="node-title">📝 レポート生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="graph-container">
+            <h3>🔴 LIVE OUTPUT</h3>
+            <div class="live-output" id="liveOutput">
+                <div class="log-entry info">システム待機中... 調査を開始してください。</div>
+            </div>
+        </div>
+        
+        <div class="graph-container" id="reportContainer" style="display: none;">
+            <h3>📋 調査レポート</h3>
+            <div class="report-content" id="reportContent">
+                <div class="report-streaming" id="reportStreaming"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let startTime = null;
+        let executionTimer = null;
+        let researchCompleted = false;
+        let isResearching = false;
+        let reportBuffer = '';
+        let currentReportNode = null;
+        
+        const nodeMapping = {
+            'classify_intent_and_topic': 'node-classify',
+            'generate_search_queries': 'node-queries', 
+            'execute_parallel_search': 'node-search',
+            'synthesize_and_report': 'node-report'
+        };
+        
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                updateConnectionStatus(true);
+                addLog('WebSocket接続が確立されました', 'success');
+            };
+            
+            ws.onmessage = function(event) {
+                const update = JSON.parse(event.data);
+                handleGraphUpdate(update);
+            };
+            
+            ws.onclose = function(event) {
+                updateConnectionStatus(false);
+                
+                // Only show error if disconnection was unexpected
+                if (!researchCompleted && isResearching) {
+                    addLog('⚠️ 接続が予期せず切断されました', 'warning');
+                    // Only auto-reconnect if research was in progress
+                    setTimeout(connectWebSocket, 3000);
+                } else if (researchCompleted) {
+                    // Normal completion - no error message needed
+                } else {
+                    // Initial connection or idle state
+                    addLog('接続が切断されました', 'info');
+                    setTimeout(connectWebSocket, 5000);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                if (isResearching) {
+                    addLog('⚠️ 接続エラーが発生しました', 'warning');
+                }
+            };
+        }
+        
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            const text = document.getElementById('connectionText');
+            
+            if (connected) {
+                status.className = 'connection-status connected';
+                text.textContent = '接続済み';
+            } else {
+                status.className = 'connection-status disconnected';
+                text.textContent = '切断';
+            }
+        }
+        
+        function handleGraphUpdate(update) {
+            const { type, node, chunk, error } = update;
+            
+            switch(type) {
+                case 'start':
+                    startExecution();
+                    break;
+                case 'node_start':
+                    updateNodeStatus(node, 'in-progress', '実行中...');
+                    addLog(`📍 ${getNodeDisplayName(node)}: 開始`, 'info');
+                    
+                    // Start report section for report generation
+                    if (node === 'synthesize_and_report') {
+                        showReportSection();
+                        reportBuffer = '';
+                        currentReportNode = node;
+                    }
+                    break;
+                case 'node_complete':
+                    updateNodeStatus(node, 'completed', '完了');
+                    addLog(`✅ ${getNodeDisplayName(node)}: 完了`, 'success');
+                    updateProgress();
+                    
+                    // Finalize report if this was report generation
+                    if (node === 'synthesize_and_report') {
+                        currentReportNode = null;
+                        updateReportContent(reportBuffer); // Final update without progress indicator
+                    }
+                    break;
+                case 'streaming_chunk':
+                    if (chunk !== undefined && chunk !== null) {
+                        if (node === 'synthesize_and_report') {
+                            // Debug: Log each chunk to see what we're receiving
+                            console.log('Received chunk:', JSON.stringify(chunk));
+                            
+                            // Accumulate report content (don't trim to preserve newlines)
+                            reportBuffer += chunk;
+                            updateReportContent(reportBuffer);
+                        } else {
+                            // Regular streaming for other nodes (only show non-empty chunks)
+                            if (chunk.trim()) {
+                                addStreamingChunk(node, chunk);
+                            }
+                        }
+                    }
+                    break;
+                case 'complete':
+                    completeExecution();
+                    researchCompleted = true;
+                    isResearching = false;
+                    break;
+                case 'error':
+                    updateNodeStatus(node, 'error', 'エラー');
+                    addLog(`❌ ${getNodeDisplayName(node)}: ${error}`, 'error');
+                    isResearching = false;
+                    break;
+            }
+        }
+        
+        function updateNodeStatus(nodeName, status, statusText) {
+            const nodeId = nodeMapping[nodeName];
+            if (!nodeId) return;
+            
+            const node = document.getElementById(nodeId);
+            node.className = `node ${status}`;
+            node.querySelector('.node-status').textContent = statusText;
+        }
+        
+        function addLog(message, type = 'info') {
+            const output = document.getElementById('liveOutput');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function addStreamingChunk(node, chunk) {
+            const output = document.getElementById('liveOutput');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="streaming-text">${getNodeDisplayName(node)}</span>: ${chunk}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function getNodeDisplayName(nodeName) {
+            const names = {
+                'classify_intent_and_topic': '意図判定',
+                'generate_search_queries': 'クエリ生成',
+                'execute_parallel_search': '並行検索', 
+                'synthesize_and_report': 'レポート生成'
+            };
+            return names[nodeName] || nodeName;
+        }
+        
+        function startExecution() {
+            startTime = Date.now();
+            executionTimer = setInterval(updateExecutionTime, 1000);
+            document.getElementById('startBtn').disabled = true;
+            resetNodes();
+            resetReportSection();
+            addLog('🚀 調査を開始しました', 'info');
+            isResearching = true;
+            researchCompleted = false;
+        }
+        
+        function completeExecution() {
+            clearInterval(executionTimer);
+            document.getElementById('startBtn').disabled = false;
+            addLog('🎉 調査が完了しました', 'success');
+        }
+        
+        function updateExecutionTime() {
+            if (!startTime) return;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('executionTime').textContent = `${minutes}:${seconds}`;
+        }
+        
+        function updateProgress() {
+            const completed = document.querySelectorAll('.node.completed').length;
+            document.getElementById('progress').textContent = `${completed}/4`;
+        }
+        
+        function resetNodes() {
+            Object.values(nodeMapping).forEach(nodeId => {
+                const node = document.getElementById(nodeId);
+                node.className = 'node pending';
+                node.querySelector('.node-status').textContent = '待機中';
+            });
+            document.getElementById('progress').textContent = '0/4';
+        }
+        
+        function startResearch() {
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('調査したいトピックを入力してください');
+                return;
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'research',
+                    query: query
+                }));
+                document.getElementById('queryInput').value = '';
+            } else {
+                addLog('WebSocket接続がありません', 'error');
+            }
+        }
+        
+        // Enter key support
+        document.getElementById('queryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                startResearch();
+            }
+        });
+        
+        // Report section functions
+        function showReportSection() {
+            document.getElementById('reportContainer').style.display = 'block';
+            const reportContent = document.getElementById('reportStreaming');
+            reportContent.innerHTML = '<div class="report-progress">📝 レポートを生成中...</div>';
+        }
+        
+        function resetReportSection() {
+            document.getElementById('reportContainer').style.display = 'none';
+            document.getElementById('reportStreaming').innerHTML = '';
+            reportBuffer = '';
+            currentReportNode = null;
+        }
+        
+        function updateReportContent(content) {
+            const reportElement = document.getElementById('reportStreaming');
+            
+            // Clean up content - only remove code blocks, don't mess with structure
+            let cleanContent = content
+                .replace(/```markdown\n?/g, '')
+                .replace(/```\n?/g, '');
+            
+            // Debug: Show raw and cleaned markdown content
+            console.log('Raw markdown content:', content);
+            console.log('Cleaned markdown content (no regex fixes):', cleanContent);
+            
+            // Parse markdown to HTML using Showdown.js
+            let formattedContent;
+            try {
+                if (typeof showdown !== 'undefined') {
+                    const converter = new showdown.Converter({
+                        headerLevelStart: 1,
+                        simplifiedAutoLink: true,
+                        excludeTrailingPunctuationFromURLs: true,
+                        literalMidWordUnderscores: true,
+                        strikethrough: true,
+                        tables: true,
+                        tasklists: true,
+                        smoothLivePreview: true,
+                        smartIndentationFix: true
+                    });
+                    formattedContent = converter.makeHtml(cleanContent);
+                    console.log('Converted HTML:', formattedContent);
+                } else {
+                    throw new Error('Showdown.js not loaded');
+                }
+            } catch (error) {
+                console.error('Markdown parsing error:', error);
+                // Fallback: Simple text with basic formatting
+                formattedContent = cleanContent
+                    .replace(/^# (.*)/gm, '<h1>$1</h1>')
+                    .replace(/^## (.*)/gm, '<h2>$1</h2>')
+                    .replace(/^### (.*)/gm, '<h3>$1</h3>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+            }
+            
+            // Add progress indicator if still streaming
+            if (currentReportNode === 'synthesize_and_report') {
+                formattedContent += '<div class="report-progress">✍️ 生成中...</div>';
+            }
+            
+            reportElement.innerHTML = formattedContent;
+            
+            // Auto-scroll to bottom
+            const reportContainer = document.getElementById('reportContent');
+            reportContainer.scrollTop = reportContainer.scrollHeight;
+        }
+        
+        // Debug: Check if Showdown.js is loaded
+        if (typeof showdown === 'undefined') {
+            console.error('Showdown.js is not loaded');
+            addLog('⚠️ マークダウンライブラリが読み込まれていません', 'warning');
+        } else {
+            console.log('Showdown.js loaded successfully');
+        }
+        
+        // Initialize WebSocket connection
+        connectWebSocket();
+    </script>
+</body>
+</html>
