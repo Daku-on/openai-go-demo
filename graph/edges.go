@@ -23,6 +23,8 @@ func NewEdgeRegistry() *EdgeRegistry {
 	registry.RegisterEdge("after_classify", registry.AfterClassify)
 	registry.RegisterEdge("after_generate_queries", registry.AfterGenerateQueries)
 	registry.RegisterEdge("after_search", registry.AfterSearch)
+	registry.RegisterEdge("after_individual_search", registry.AfterIndividualSearch)
+	registry.RegisterEdge("after_merge", registry.AfterMerge)
 	registry.RegisterEdge("after_report", registry.AfterReport)
 
 	return registry
@@ -60,17 +62,35 @@ func (r *EdgeRegistry) AfterClassify(state *AppState) (string, error) {
 }
 
 // AfterGenerateQueries decides next node after query generation
+// Returns special format for dynamic branching: "branch:search_query"
 func (r *EdgeRegistry) AfterGenerateQueries(state *AppState) (string, error) {
 	if len(state.SearchQueries) == 0 {
 		return "", fmt.Errorf("no search queries generated")
 	}
-	return "execute_parallel_search", nil
+	
+	// Signal dynamic branching to engine
+	return "branch:search_query", nil
 }
 
 // AfterSearch decides next node after search execution
 func (r *EdgeRegistry) AfterSearch(state *AppState) (string, error) {
 	if len(state.RawContents) == 0 {
 		return "", fmt.Errorf("no search results collected")
+	}
+	return "synthesize_and_report", nil
+}
+
+// AfterIndividualSearch handles transition after individual search nodes (used in dynamic branching)
+func (r *EdgeRegistry) AfterIndividualSearch(state *AppState) (string, error) {
+	// This should not be called directly - individual searches are handled by the engine
+	// But we keep it for completeness
+	return "merge_search_results", nil
+}
+
+// AfterMerge decides next node after merging search results
+func (r *EdgeRegistry) AfterMerge(state *AppState) (string, error) {
+	if len(state.RawContents) == 0 {
+		return "", fmt.Errorf("no search results to synthesize")
 	}
 	return "synthesize_and_report", nil
 }
@@ -94,6 +114,7 @@ func NewGraphFlow() *GraphFlow {
 			"classify_intent_and_topic": "after_classify",
 			"generate_search_queries":   "after_generate_queries",
 			"execute_parallel_search":   "after_search",
+			"merge_search_results":      "after_merge",
 			"synthesize_and_report":     "after_report",
 			"answer_directly":           "after_report",
 			"handle_chat":               "after_report",

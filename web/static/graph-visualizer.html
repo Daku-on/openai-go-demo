@@ -260,6 +260,48 @@
             font-style: italic;
             margin-bottom: 10px;
         }
+        
+        /* Dynamic branching styles */
+        .branching-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        .dynamic-search-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 20px;
+            background: rgba(33, 38, 45, 0.5);
+            border-radius: 12px;
+            border: 2px dashed #30363d;
+            min-height: 80px;
+            align-items: center;
+        }
+        
+        .dynamic-search-area .node {
+            min-width: 160px;
+            font-size: 14px;
+        }
+        
+        .dynamic-search-area:empty::before {
+            content: "検索クエリノードがここに表示されます";
+            color: #6e7681;
+            font-style: italic;
+            text-align: center;
+        }
+        
+        .branch-info {
+            color: #6e7681;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
     </style>
     
     <!-- Showdown.js for markdown parsing (more reliable) -->
@@ -341,8 +383,13 @@
             'classify_intent_and_topic': 'node-classify',
             'generate_search_queries': 'node-queries', 
             'execute_parallel_search': 'node-search',
+            'merge_search_results': 'node-merge',
             'synthesize_and_report': 'node-report'
         };
+        
+        // Track dynamic search nodes
+        let dynamicNodes = [];
+        let originalFlow = null;
         
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -405,8 +452,15 @@
                     startExecution();
                     break;
                 case 'node_start':
-                    updateNodeStatus(node, 'in-progress', '実行中...');
-                    addLog(`📍 ${getNodeDisplayName(node)}: 開始`, 'info');
+                    // Check if this is a dynamic search query node
+                    if (node.startsWith('search_query_')) {
+                        createDynamicSearchNode(node);
+                        updateNodeStatus(node, 'in-progress', '実行中...');
+                        addLog(`🔍 ${getNodeDisplayName(node)}: 並行検索開始`, 'info');
+                    } else {
+                        updateNodeStatus(node, 'in-progress', '実行中...');
+                        addLog(`📍 ${getNodeDisplayName(node)}: 開始`, 'info');
+                    }
                     
                     // Start report section for report generation
                     if (node === 'synthesize_and_report') {
@@ -417,7 +471,20 @@
                     break;
                 case 'node_complete':
                     updateNodeStatus(node, 'completed', '完了');
-                    addLog(`✅ ${getNodeDisplayName(node)}: 完了`, 'success');
+                    
+                    // Special handling for query generation
+                    if (node === 'generate_search_queries') {
+                        const queryCount = update.state?.search_queries?.length || 0;
+                        addLog(`✅ ${getNodeDisplayName(node)}: ${queryCount}個のクエリを生成`, 'success');
+                    } else if (node === 'merge_search_results') {
+                        const dynamicNodeCount = dynamicNodes.length;
+                        addLog(`✅ ${getNodeDisplayName(node)}: ${dynamicNodeCount}個の検索結果を統合`, 'success');
+                    } else if (node.startsWith('search_query_')) {
+                        addLog(`✅ ${getNodeDisplayName(node)}: 検索完了`, 'success');
+                    } else {
+                        addLog(`✅ ${getNodeDisplayName(node)}: 完了`, 'success');
+                    }
+                    
                     updateProgress();
                     
                     // Finalize report if this was report generation
@@ -457,12 +524,29 @@
         }
         
         function updateNodeStatus(nodeName, status, statusText) {
-            const nodeId = nodeMapping[nodeName];
-            if (!nodeId) return;
+            let nodeId = nodeMapping[nodeName];
+            
+            // If not in static mapping, check if it's a dynamic node
+            if (!nodeId && nodeName.startsWith('search_query_')) {
+                nodeId = 'dynamic-' + nodeName;
+            }
+            
+            if (!nodeId) {
+                console.log(`Node ID not found for: ${nodeName}`);
+                return;
+            }
             
             const node = document.getElementById(nodeId);
+            if (!node) {
+                console.log(`Node element not found for ID: ${nodeId}`);
+                return;
+            }
+            
             node.className = `node ${status}`;
-            node.querySelector('.node-status').textContent = statusText;
+            const statusElement = node.querySelector('.node-status');
+            if (statusElement) {
+                statusElement.textContent = statusText;
+            }
         }
         
         function addLog(message, type = 'info') {
@@ -487,10 +571,98 @@
             const names = {
                 'classify_intent_and_topic': '意図判定',
                 'generate_search_queries': 'クエリ生成',
-                'execute_parallel_search': '並行検索', 
+                'execute_parallel_search': '並行検索',
+                'merge_search_results': '結果合流',
                 'synthesize_and_report': 'レポート生成'
             };
+            
+            // Handle dynamic search query nodes
+            if (nodeName.startsWith('search_query_')) {
+                const queryNum = nodeName.replace('search_query_', '');
+                return `検索${queryNum}`;
+            }
+            
             return names[nodeName] || nodeName;
+        }
+        
+        function createDynamicSearchNode(nodeName) {
+            // Check if node already exists
+            const nodeId = 'dynamic-' + nodeName;
+            if (document.getElementById(nodeId)) {
+                return; // Node already exists
+            }
+            
+            // Get the graph flow container
+            const graphFlow = document.querySelector('.graph-flow');
+            
+            // Save original flow if not already saved
+            if (!originalFlow) {
+                originalFlow = graphFlow.innerHTML;
+            }
+            
+            // Check if we need to create the dynamic branching layout
+            if (dynamicNodes.length === 0) {
+                createDynamicBranchingLayout();
+            }
+            
+            // Create the dynamic node
+            const node = document.createElement('div');
+            node.className = 'node pending';
+            node.id = nodeId;
+            node.innerHTML = `
+                <div class="node-title">🔍 ${getNodeDisplayName(nodeName)}</div>
+                <div class="node-status">待機中</div>
+            `;
+            
+            // Add to dynamic nodes list
+            dynamicNodes.push(nodeName);
+            
+            // Insert into the branching area
+            const branchingArea = document.getElementById('dynamic-branching-area');
+            if (branchingArea) {
+                // Update branch info with current count
+                const branchInfo = branchingArea.querySelector('.branch-info');
+                if (branchInfo) {
+                    branchInfo.textContent = `${dynamicNodes.length}個の並行検索実行中`;
+                }
+                
+                branchingArea.appendChild(node);
+            }
+            
+            console.log(`Created dynamic node: ${nodeName} (total: ${dynamicNodes.length})`);
+        }
+        
+        function createDynamicBranchingLayout() {
+            const graphFlow = document.querySelector('.graph-flow');
+            
+            // Create new dynamic layout
+            graphFlow.innerHTML = `
+                <div class="node pending" id="node-classify">
+                    <div class="node-title">🎯 意図判定</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-queries">
+                    <div class="node-title">🔍 クエリ生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">↓</div>
+                <div class="branching-container">
+                    <div class="node pending" id="node-merge">
+                        <div class="node-title">🔗 結果合流</div>
+                        <div class="node-status">待機中</div>
+                    </div>
+                    <div class="dynamic-search-area" id="dynamic-branching-area">
+                        <div class="branch-info">検索クエリの並行実行</div>
+                        <!-- Dynamic search nodes will be inserted here -->
+                    </div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-report">
+                    <div class="node-title">📝 レポート生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+            `;
         }
         
         function startExecution() {
@@ -520,16 +692,38 @@
         
         function updateProgress() {
             const completed = document.querySelectorAll('.node.completed').length;
-            document.getElementById('progress').textContent = `${completed}/4`;
+            const total = document.querySelectorAll('.node').length;
+            document.getElementById('progress').textContent = `${completed}/${total}`;
         }
         
         function resetNodes() {
+            // Reset dynamic nodes and layout
+            dynamicNodes = [];
+            
+            // Restore original layout if it was changed
+            if (originalFlow) {
+                const graphFlow = document.querySelector('.graph-flow');
+                graphFlow.innerHTML = originalFlow;
+                originalFlow = null;
+            }
+            
+            // Reset all static nodes
             Object.values(nodeMapping).forEach(nodeId => {
                 const node = document.getElementById(nodeId);
-                node.className = 'node pending';
-                node.querySelector('.node-status').textContent = '待機中';
+                if (node) {
+                    node.className = 'node pending';
+                    const statusElement = node.querySelector('.node-status');
+                    if (statusElement) {
+                        statusElement.textContent = '待機中';
+                    }
+                }
             });
-            document.getElementById('progress').textContent = '0/4';
+            
+            // Update progress with actual node count
+            setTimeout(() => {
+                const total = document.querySelectorAll('.node').length;
+                document.getElementById('progress').textContent = `0/${total}`;
+            }, 100);
         }
         
         function startResearch() {

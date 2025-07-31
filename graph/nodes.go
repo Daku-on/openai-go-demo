@@ -50,6 +50,7 @@ func NewNodeRegistry(apiKey, serpAPIKey string) (*NodeRegistry, error) {
 	registry.RegisterNode("classify_intent_and_topic", registry.ClassifyIntentAndTopic)
 	registry.RegisterNode("generate_search_queries", registry.GenerateSearchQueries)
 	registry.RegisterNode("execute_parallel_search", registry.ExecuteParallelSearch)
+	registry.RegisterNode("merge_search_results", registry.MergeSearchResults)
 	registry.RegisterNode("synthesize_and_report", registry.SynthesizeAndReport)
 	registry.RegisterNode("answer_directly", registry.AnswerDirectly)
 	registry.RegisterNode("handle_chat", registry.HandleChat)
@@ -276,20 +277,52 @@ JSON配列形式で検索クエリを返してください:
 	// Parse the JSON response
 	var queries []string
 	responseStr := response.String()
-	if err := json.Unmarshal([]byte(responseStr), &queries); err != nil {
-		// Fallback: split by newlines if JSON parsing fails
-		queries = strings.Split(responseStr, "\n")
+	log.Printf("DEBUG: Raw LLM response for query generation: %q", responseStr)
+	
+	// Clean up the response to extract JSON array
+	cleanedResponse := responseStr
+	
+	// Remove markdown code blocks
+	cleanedResponse = strings.ReplaceAll(cleanedResponse, "```json", "")
+	cleanedResponse = strings.ReplaceAll(cleanedResponse, "```", "")
+	cleanedResponse = strings.TrimSpace(cleanedResponse)
+	
+	// Find JSON array bounds
+	startIdx := strings.Index(cleanedResponse, "[")
+	endIdx := strings.LastIndex(cleanedResponse, "]")
+	
+	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
+		jsonStr := cleanedResponse[startIdx : endIdx+1]
+		log.Printf("DEBUG: Extracted JSON: %q", jsonStr)
+		
+		if err := json.Unmarshal([]byte(jsonStr), &queries); err != nil {
+			log.Printf("DEBUG: JSON parsing failed: %v", err)
+			// Fallback: extract lines with quotes
+			queries = extractQueriesFromText(responseStr)
+		} else {
+			log.Printf("DEBUG: JSON parsing successful, got %d queries", len(queries))
+		}
+	} else {
+		log.Printf("DEBUG: No JSON array found, using text extraction")
+		queries = extractQueriesFromText(responseStr)
 	}
 
 	// Add queries to state
-	for _, query := range queries {
+	for i, query := range queries {
 		query = strings.TrimSpace(query)
 		if query != "" {
+			log.Printf("DEBUG: Adding query %d: %q", i+1, query)
 			state.AddSearchQuery(query)
+		} else {
+			log.Printf("DEBUG: Skipping empty query at index %d", i+1)
 		}
 	}
 
-	log.Printf("Generated %d search queries", len(state.SearchQueries))
+	finalQueries := state.GetSearchQueries()
+	log.Printf("Generated %d search queries total", len(finalQueries))
+	for i, q := range finalQueries {
+		log.Printf("Final query %d: %q", i+1, q)
+	}
 	return nil
 }
 
@@ -391,6 +424,71 @@ func (r *NodeRegistry) simulateSearch(ctx context.Context, query string) (string
 	time.Sleep(100 * time.Millisecond)
 	
 	return response.String(), nil
+}
+
+// simulateSearchForBranching simulates a search operation for individual query nodes with streaming
+func (r *NodeRegistry) simulateSearchForBranching(ctx context.Context, query, queryId string, state *AppState) (string, error) {
+	prompt := fmt.Sprintf(`以下の検索クエリに対する簡潔で事実に基づいた要約を日本語で2-3段落で提供してください: "%s"
+
+正確で最新の情報に焦点を当ててください。技術関連の場合は、最新の開発動向も含めてください。`, query)
+
+	// Use streaming for real-time updates
+	var response strings.Builder
+	_, err := llms.GenerateFromSinglePrompt(ctx, r.llm, prompt, llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+		response.Write(chunk)
+		// Send streaming updates for this individual query node
+		state.OnStreamingChunk(queryId, string(chunk))
+		return nil
+	}))
+	if err != nil {
+		return "", err
+	}
+
+	// Simulate network delay
+	time.Sleep(100 * time.Millisecond)
+	
+	return response.String(), nil
+}
+
+// extractQueriesFromText extracts search queries from text when JSON parsing fails
+func extractQueriesFromText(text string) []string {
+	var queries []string
+	lines := strings.Split(text, "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Look for lines with quotes (likely search queries)
+		if strings.Contains(line, "\"") && len(line) > 5 {
+			// Extract content between quotes
+			start := strings.Index(line, "\"")
+			end := strings.LastIndex(line, "\"")
+			if start != -1 && end != -1 && end > start {
+				query := line[start+1 : end]
+				query = strings.TrimSpace(query)
+				if len(query) > 5 { // Only meaningful queries
+					queries = append(queries, query)
+				}
+			}
+		}
+	}
+	
+	log.Printf("DEBUG: Text extraction found %d queries", len(queries))
+	return queries
+}
+
+// MergeSearchResults merges the results from individual search branches
+func (r *NodeRegistry) MergeSearchResults(ctx context.Context, state *AppState) error {
+	searchResults := state.GetRawContents()
+	log.Printf("Merging search results from %d individual searches", len(searchResults))
+	
+	// Results are already stored in state by the dynamic branching engine
+	// This node just validates that we have results and logs the merge completion
+	if len(searchResults) == 0 {
+		return fmt.Errorf("no search results to merge")
+	}
+	
+	log.Printf("Successfully merged %d search results", len(searchResults))
+	return nil
 }
 
 // SynthesizeAndReport creates a comprehensive report from search results

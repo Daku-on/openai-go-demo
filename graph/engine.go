@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,7 +28,7 @@ func NewEngine(apiKey, serpAPIKey string) (*Engine, error) {
 		nodeRegistry: nodeRegistry,
 		edgeRegistry: NewEdgeRegistry(),
 		flow:         NewGraphFlow(),
-		maxSteps:     10, // Prevent infinite loops
+		maxSteps:     25, // Increased for dynamic branching support
 	}, nil
 }
 
@@ -233,7 +235,37 @@ func (e *Engine) StreamExecute(ctx context.Context, userInput string, updates ch
 			}, fmt.Errorf("edge decision failed after %s: %w", currentNode, err)
 		}
 		
-		currentNode = nextNode
+		// Check for dynamic branching signal
+		if strings.HasPrefix(nextNode, "branch:") {
+			branchType := strings.TrimPrefix(nextNode, "branch:")
+			if branchType == "search_query" {
+				// Execute dynamic search branching
+				if err := e.executeDynamicSearchBranching(ctx, state, updates, &path, &stepsExecuted, startTime); err != nil {
+					close(updates)
+					return &ExecutionResult{
+						FinalState:    state,
+						ExecutionTime: time.Since(startTime),
+						StepsExecuted: stepsExecuted,
+						Path:          path,
+					}, err
+				}
+				// After branching, go to merge node
+				currentNode = "merge_search_results"
+			} else {
+				err := fmt.Errorf("unknown branch type: %s", branchType)
+				updates <- GraphUpdate{
+					Type:      "error",
+					Node:      currentNode,
+					State:     state.Clone(),
+					Error:     err,
+					Timestamp: time.Now(),
+				}
+				close(updates)
+				return nil, err
+			}
+		} else {
+			currentNode = nextNode
+		}
 		stepsExecuted++
 	}
 	
@@ -278,4 +310,120 @@ type GraphUpdate struct {
 	Error     error
 	Chunk     string    // For streaming_chunk type
 	Timestamp time.Time
+}
+
+// executeDynamicSearchBranching executes individual search queries in parallel
+func (e *Engine) executeDynamicSearchBranching(ctx context.Context, state *AppState, updates chan<- GraphUpdate, path *[]string, stepsExecuted *int, startTime time.Time) error {
+	queries := state.GetSearchQueries()
+	if len(queries) == 0 {
+		return fmt.Errorf("no search queries available for branching")
+	}
+	
+	log.Printf("Starting dynamic search branching with %d queries", len(queries))
+	for i, q := range queries {
+		log.Printf("Query %d: %s", i+1, q)
+	}
+	
+	var wg sync.WaitGroup
+	resultsChan := make(chan struct {
+		queryId  string
+		content  string
+		err      error
+	}, len(queries))
+	
+	// Execute each query as an individual node
+	for i, query := range queries {
+		wg.Add(1)
+		
+		go func(index int, searchQuery string) {
+			defer wg.Done()
+			
+			queryId := fmt.Sprintf("search_query_%d", index+1)
+			*path = append(*path, queryId)
+			
+			// Send node start for individual search
+			updates <- GraphUpdate{
+				Type:      "node_start",
+				Node:      queryId,
+				State:     state.Clone(),
+				Timestamp: time.Now(),
+			}
+			
+			// Create timeout context for individual search
+			searchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			
+			// Perform the actual search
+			var content string
+			var err error
+			
+			if e.nodeRegistry.serpAPI != nil {
+				log.Printf("Performing real search for query %d: %s", index+1, searchQuery)
+				content, err = e.nodeRegistry.serpAPI.SearchAndSummarize(searchCtx, searchQuery)
+			} else {
+				log.Printf("Using simulated search for query %d: %s", index+1, searchQuery)
+				content, err = e.nodeRegistry.simulateSearchForBranching(searchCtx, searchQuery, queryId, state)
+			}
+			
+			// Send result to channel
+			select {
+			case resultsChan <- struct {
+				queryId  string
+				content  string
+				err      error
+			}{queryId, content, err}:
+			case <-searchCtx.Done():
+				// Timeout or cancellation
+				return
+			}
+			
+			// Send node complete for individual search
+			if err != nil {
+				updates <- GraphUpdate{
+					Type:      "error",
+					Node:      queryId,
+					State:     state.Clone(),
+					Error:     err,
+					Timestamp: time.Now(),
+				}
+			} else {
+				updates <- GraphUpdate{
+					Type:      "node_complete",
+					Node:      queryId,
+					State:     state.Clone(),
+					Timestamp: time.Now(),
+				}
+			}
+		}(i, query)
+	}
+	
+	// Wait for all searches to complete
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+	
+	// Collect results
+	successCount := 0
+	for result := range resultsChan {
+		if result.err != nil {
+			log.Printf("Search error for %s: %v", result.queryId, result.err)
+			continue
+		}
+		
+		// Store result in state with proper source naming
+		sourceName := fmt.Sprintf("Search_%s", result.queryId)
+		state.SetRawContent(sourceName, result.content)
+		successCount++
+	}
+	
+	// Dynamic branching counts as 1 step, not len(queries) steps
+	*stepsExecuted += 1
+	log.Printf("Dynamic branching completed: %d/%d searches successful", successCount, len(queries))
+	
+	if successCount == 0 {
+		return fmt.Errorf("all search branches failed")
+	}
+	
+	return nil
 }

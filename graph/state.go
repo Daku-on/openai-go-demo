@@ -111,6 +111,26 @@ func (s *AppState) GetIntent() string {
 	return s.Intent
 }
 
+// GetSearchQueries safely gets the search queries
+func (s *AppState) GetSearchQueries() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	queries := make([]string, len(s.SearchQueries))
+	copy(queries, s.SearchQueries)
+	return queries
+}
+
+// GetRawContents safely gets the raw contents
+func (s *AppState) GetRawContents() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	contents := make(map[string]string)
+	for k, v := range s.RawContents {
+		contents[k] = v
+	}
+	return contents
+}
+
 // Clone creates a deep copy of the state
 func (s *AppState) Clone() *AppState {
 	s.mu.RLock()
