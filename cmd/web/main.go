@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/takako/openai-go-demo/graph"
+	"github.com/takako/openai-go-demo/internal/config"
 )
 
 var upgrader = websocket.Upgrader{
@@ -33,59 +34,65 @@ type WebSocketResponse struct {
 }
 
 func main() {
-	// Load environment variables from project root
-	wd, _ := os.Getwd()
-	projectRoot := filepath.Join(wd, "..", "..")
-	envPath := filepath.Join(projectRoot, ".env")
+	// Load .env file first (for backward compatibility)
+	loadLegacyDotEnv()
 	
-	if err := godotenv.Load(envPath); err != nil {
-		log.Printf("No .env file found at %s", envPath)
-		// Try loading from current directory as fallback
-		if err := godotenv.Load(); err != nil {
-			log.Println("No .env file found in current directory either")
-		}
+	// Load configuration using viper
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Get API keys
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" || apiKey == "your-api-key-here" {
-		log.Fatal("OPENAI_API_KEY environment variable is required. Please set your actual API key in the .env file.")
-	}
-
-	serpAPIKey := os.Getenv("SERPAPI_KEY")
-	if serpAPIKey == "" {
-		log.Println("⚠️  SERPAPI_KEY not found - will use simulated search")
-	} else {
+	// Log SerpAPI status
+	if cfg.IsSerpAPIEnabled() {
 		log.Println("✅ SerpAPI configured - real web search enabled")
+	} else {
+		log.Println("⚠️  SERPAPI_KEY not found - will use simulated search")
 	}
 
 	// Create graph engine
-	engine, err := graph.NewEngine(apiKey, serpAPIKey)
+	engine, err := graph.NewEngine(cfg.OpenAI.APIKey, cfg.SerpAPI.APIKey)
 	if err != nil {
 		log.Fatalf("Failed to create engine: %v", err)
 	}
 
-	// Static file server
+	// Static file server for CSS/JS assets
+	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("../../web/static/css/"))))
+	http.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("../../web/static/js/"))))
+	
+	// Main routes
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r, engine)
 	})
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	fmt.Printf("🌐 Web Server starting on http://localhost:%s\n", cfg.Server.Port)
+	fmt.Printf("📊 Graph Visualizer: http://localhost:%s\n", cfg.Server.Port)
+	log.Fatal(http.ListenAndServe(":"+cfg.Server.Port, nil))
+}
 
-	fmt.Printf("🌐 Web Server starting on http://localhost:%s\n", port)
-	fmt.Printf("📊 Graph Visualizer: http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+// loadLegacyDotEnv maintains backward compatibility with existing .env setup
+func loadLegacyDotEnv() {
+	// Try loading from project root paths for backward compatibility
+	possiblePaths := []string{
+		".env",
+		"../.env", 
+		"../../.env",
+	}
+	
+	for _, envPath := range possiblePaths {
+		if err := godotenv.Load(envPath); err == nil {
+			log.Printf("Loaded .env from: %s", envPath)
+			return
+		}
+	}
 }
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
-	// Serve the graph visualizer HTML
+	// Serve the new modular index.html
 	wd, _ := os.Getwd()
 	projectRoot := filepath.Join(wd, "..", "..")
-	htmlPath := filepath.Join(projectRoot, "web", "static", "graph-visualizer.html")
+	htmlPath := filepath.Join(projectRoot, "web", "static", "index.html")
 	
 	http.ServeFile(w, r, htmlPath)
 }

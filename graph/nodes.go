@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/tidwall/gjson"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/takako/openai-go-demo/tools"
@@ -274,36 +276,18 @@ JSON配列形式で検索クエリを返してください:
 		return fmt.Errorf("failed to generate search queries: %w", err)
 	}
 
-	// Parse the JSON response
+	// Parse the JSON response using gjson library
 	var queries []string
 	responseStr := response.String()
 	log.Printf("DEBUG: Raw LLM response for query generation: %q", responseStr)
 	
-	// Clean up the response to extract JSON array
-	cleanedResponse := responseStr
-	
-	// Remove markdown code blocks
-	cleanedResponse = strings.ReplaceAll(cleanedResponse, "```json", "")
-	cleanedResponse = strings.ReplaceAll(cleanedResponse, "```", "")
-	cleanedResponse = strings.TrimSpace(cleanedResponse)
-	
-	// Find JSON array bounds
-	startIdx := strings.Index(cleanedResponse, "[")
-	endIdx := strings.LastIndex(cleanedResponse, "]")
-	
-	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
-		jsonStr := cleanedResponse[startIdx : endIdx+1]
-		log.Printf("DEBUG: Extracted JSON: %q", jsonStr)
-		
-		if err := json.Unmarshal([]byte(jsonStr), &queries); err != nil {
-			log.Printf("DEBUG: JSON parsing failed: %v", err)
-			// Fallback: extract lines with quotes
-			queries = extractQueriesFromText(responseStr)
-		} else {
-			log.Printf("DEBUG: JSON parsing successful, got %d queries", len(queries))
-		}
+	// Extract JSON array using regex and gjson
+	if parsedQueries := parseQueriesWithGJson(responseStr); len(parsedQueries) > 0 {
+		queries = parsedQueries
+		log.Printf("DEBUG: gjson parsing successful, got %d queries", len(queries))
 	} else {
-		log.Printf("DEBUG: No JSON array found, using text extraction")
+		// Fallback to text extraction
+		log.Printf("DEBUG: gjson parsing failed, using text extraction fallback")
 		queries = extractQueriesFromText(responseStr)
 	}
 
@@ -448,6 +432,40 @@ func (r *NodeRegistry) simulateSearchForBranching(ctx context.Context, query, qu
 	time.Sleep(100 * time.Millisecond)
 	
 	return response.String(), nil
+}
+
+// parseQueriesWithGJson extracts search queries using gjson library
+func parseQueriesWithGJson(text string) []string {
+	// Remove markdown code blocks first
+	cleanText := regexp.MustCompile("```(?:json)?").ReplaceAllString(text, "")
+	
+	// Find JSON array using regex
+	jsonArrayRegex := regexp.MustCompile(`\[[\s\S]*?\]`)
+	matches := jsonArrayRegex.FindAllString(cleanText, -1)
+	
+	for _, match := range matches {
+		// Try to parse with gjson
+		if gjson.Valid(match) {
+			var queries []string
+			
+			// Get array elements
+			result := gjson.Parse(match)
+			if result.IsArray() {
+				result.ForEach(func(key, value gjson.Result) bool {
+					if query := strings.TrimSpace(value.String()); len(query) > 5 {
+						queries = append(queries, query)
+					}
+					return true // continue iteration
+				})
+				
+				if len(queries) > 0 {
+					return queries
+				}
+			}
+		}
+	}
+	
+	return nil
 }
 
 // extractQueriesFromText extracts search queries from text when JSON parsing fails

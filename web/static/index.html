@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Go Research Assistant - Live Graph</title>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    
+    <!-- External JavaScript Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Go Research Assistant</h1>
+            <p>リアルタイムグラフ実行可視化</p>
+        </div>
+        
+        <div class="status-bar">
+            <div>
+                <span class="connection-status" id="connectionStatus"></span>
+                <span id="connectionText">接続中...</span>
+            </div>
+            <div>実行時間: <span id="executionTime">00:00</span></div>
+            <div>進捗: <span id="progress">0/4</span> ノード完了</div>
+        </div>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="queryInput" placeholder="調査したいトピックを入力してください..." />
+                <button id="startBtn">🔍 調査開始</button>
+            </div>
+        </div>
+        
+        <div class="graph-container">
+            <h3>📊 実行グラフ</h3>
+            <div class="graph-flow">
+                <div class="node pending" id="node-classify">
+                    <div class="node-title">🎯 意図判定</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-queries">
+                    <div class="node-title">🔍 クエリ生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-search">
+                    <div class="node-title">🌐 並行検索</div>
+                    <div class="node-status">待機中</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="node pending" id="node-report">
+                    <div class="node-title">📝 レポート生成</div>
+                    <div class="node-status">待機中</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="graph-container">
+            <h3>🔴 LIVE OUTPUT</h3>
+            <div class="live-output" id="liveOutput">
+                <div class="log-entry info">システム待機中... 調査を開始してください。</div>
+            </div>
+        </div>
+        
+        <div class="graph-container" id="reportContainer" style="display: none;">
+            <h3>📋 調査レポート</h3>
+            <div class="report-content" id="reportContent">
+                <div class="report-streaming" id="reportStreaming"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript -->
+    <script src="/js/websocket.js"></script>
+    <script src="/js/graph.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

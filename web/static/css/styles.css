@@ -1,0 +1,303 @@
+/* Go Research Assistant - Graph Visualizer Styles */
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+body {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    color: #58a6ff;
+    margin-bottom: 10px;
+}
+
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    background: #21262d;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.graph-container {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 20px;
+}
+
+.graph-flow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.node {
+    background: #21262d;
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    padding: 15px;
+    min-width: 200px;
+    text-align: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.node.completed {
+    border-color: #238636;
+    background: #0d2818;
+}
+
+.node.in-progress {
+    border-color: #f85149;
+    background: #2d1518;
+    animation: pulse 2s infinite;
+}
+
+.node.pending {
+    border-color: #6e7681;
+    background: #21262d;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 5px #f85149; }
+    50% { box-shadow: 0 0 20px #f85149; }
+}
+
+.arrow {
+    color: #6e7681;
+    font-size: 24px;
+    margin: 0 10px;
+}
+
+.node-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.node-status {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.live-output {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    height: 300px;
+    overflow-y: auto;
+    font-family: 'SF Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.input-section {
+    background: #21262d;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+input[type="text"] {
+    flex: 1;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 12px;
+    color: #c9d1d9;
+    font-size: 14px;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+button {
+    background: #238636;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #2ea043;
+}
+
+button:disabled {
+    background: #6e7681;
+    cursor: not-allowed;
+}
+
+.connection-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.connection-status.connected {
+    background: #238636;
+}
+
+.connection-status.disconnected {
+    background: #f85149;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+    padding: 2px 0;
+}
+
+.log-entry.error {
+    color: #f85149;
+}
+
+.log-entry.success {
+    color: #238636;
+}
+
+.log-entry.info {
+    color: #58a6ff;
+}
+
+.log-entry.warning {
+    color: #d29922;
+}
+
+.streaming-text {
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.report-content {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 20px;
+    max-height: 600px;
+    overflow-y: auto;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+}
+
+.report-streaming {
+    color: #e6edf3;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.report-content h1, .report-content h2, .report-content h3 {
+    color: #58a6ff;
+    margin-top: 20px;
+    margin-bottom: 15px;
+}
+
+.report-content h1 {
+    border-bottom: 2px solid #30363d;
+    padding-bottom: 10px;
+}
+
+.report-content h2 {
+    border-bottom: 1px solid #30363d;
+    padding-bottom: 5px;
+    margin-bottom: 20px;
+}
+
+.report-content ul, .report-content ol {
+    margin-left: 20px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.report-content p {
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+.report-content strong {
+    color: #f0f6fc;
+    font-weight: bold;
+}
+
+.report-progress {
+    color: #7c3aed;
+    font-style: italic;
+    margin-bottom: 10px;
+}
+
+/* Dynamic branching styles */
+.branching-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.dynamic-search-area {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin: 15px 0;
+    padding: 20px;
+    background: rgba(33, 38, 45, 0.5);
+    border-radius: 12px;
+    border: 2px dashed #30363d;
+    min-height: 80px;
+    align-items: center;
+}
+
+.dynamic-search-area .node {
+    min-width: 160px;
+    font-size: 14px;
+}
+
+.dynamic-search-area:empty::before {
+    content: "検索クエリノードがここに表示されます";
+    color: #6e7681;
+    font-style: italic;
+    text-align: center;
+}
+
+.branch-info {
+    color: #6e7681;
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 10px;
+    font-style: italic;
+}
