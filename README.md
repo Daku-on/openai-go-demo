@@ -1,17 +1,30 @@
-# 🚀 Go フルスタック リサーチアシスタント
+# 🚀 Go フルスタック リサーチアシスタント v1.1.0
 
-**純粋なGoで構築された**マルチプラットフォーム対応の強力な自律型調査アシスタント！グラフベース処理、リアルタイムストリーミング、並列検索による包括的な調査機能を提供します。
+**純粋なGoで構築された**マルチプラットフォーム対応の強力な自律型調査アシスタント！動的グラフ分岐、リアルタイムストリーミング、並列検索による包括的な調査機能を提供します。
 
 ## 🎯 3つのインターフェース
 
 | インターフェース | 説明 | 適用場面 |
 |------------------|------|----------|
 | 🖥️ **CLI版** | ターミナルベースのインターフェース | パワーユーザー、スクリプト、サーバー環境 |
-| 🌐 **Web版** | リアルタイムグラフ可視化 | インタラクティブ分析、チーム共同作業 |  
+| 🌐 **Web版** | 動的グラフ分岐とリアルタイム可視化 | インタラクティブ分析、チーム共同作業 |  
 | ⚡ **WASM版** | ブラウザネイティブGo実行 | オフライン利用、クライアントサイド処理 |
 
 ## ✨ 主な特徴
 
+### 🔄 **NEW! 動的グラフ分岐システム (v1.1.0)**
+- **インテリジェント分岐**: 検索クエリごとに独立したノードを動的生成
+- **並行実行**: 各検索クエリが同時並行で実行される
+- **自動合流**: 個別検索結果を統合ノードで自動マージ
+- **リアルタイム表示**: 分岐・合流プロセスの可視化
+
+### 🏗️ **リファクタリング済みアーキテクチャ (v1.1.0)**
+- **堅牢なJSONパース**: gjsonライブラリによる信頼性の高い解析
+- **統一設定管理**: viperによる型安全な設定システム
+- **モジュラーフロントエンド**: CSS/JavaScript責任分離
+- **内部パッケージ化**: `internal/config/`による構造化
+
+### 🚀 **コア機能**
 - **意図ベースルーティング**: ユーザー入力を自動的に調査、Q&A、雑談に分類
 - **自律的調査**: 複数の検索クエリを生成し並列実行
 - **包括的レポート**: 検索結果を構造化されたレポートに統合
@@ -22,21 +35,37 @@
 
 ## 🏗️ アーキテクチャ
 
-LangGraphにインスパイアされたグラフベースアーキテクチャ：
+LangGraphにインスパイアされた次世代グラフベースアーキテクチャ：
 
+### 🧠 **コアコンポーネント**
 1. **状態管理**: スレッドセーフな`AppState`が実行全体のコンテキストを維持
-2. **ノード**: 個別の処理ユニット（意図分類、クエリ生成、検索、統合）
-3. **エッジ**: 状態に基づくノード遷移の制御フロー
-4. **エンジン**: ストリーミング更新をサポートするグラフ実行オーケストレーション
+2. **ノード**: 個別の処理ユニット（意図分類、クエリ生成、動的検索、統合）
+3. **エッジ**: 状態に基づくノード遷移の制御フロー + 動的分岐制御
+4. **エンジン**: ストリーミング更新と動的ノード生成をサポート
 
-### グラフフロー
+### 🔄 **動的グラフフロー (v1.1.0)**
 
 ```
 ユーザー入力 → 意図分類 → [意図に基づく分岐]
-                          ├─ 調査 → クエリ生成 → 並列検索 → レポート統合
+                          ├─ 調査 → クエリ生成 → 【動的分岐システム】
+                          │                    ├─ 検索1 (並行)
+                          │                    ├─ 検索2 (並行)
+                          │                    ├─ 検索3 (並行)
+                          │                    └─ 検索N (並行)
+                          │                             ↓
+                          │                      【自動合流】
+                          │                             ↓
+                          │                      レポート統合
                           ├─ Q&A → 直接回答
                           └─ 雑談 → チャット処理
 ```
+
+### 🎯 **技術スタック**
+- **バックエンド**: Go 1.21+ / goroutines / sync
+- **JSONパース**: github.com/tidwall/gjson
+- **設定管理**: github.com/spf13/viper
+- **フロントエンド**: 純粋JavaScript ES6+ / WebSocket / CSS3
+- **外部API**: OpenAI GPT-4o / SerpAPI
 
 ## 📋 必要条件
 
@@ -129,46 +158,73 @@ make serve-wasm
 - "こんにちは"
 - "ありがとう"
 
-## 📁 プロジェクト構成
+## 📁 プロジェクト構成 (v1.1.0 リファクタリング済み)
 
 ```
 📁 openai-go-demo/
 ├── 🖥️  cmd/cli/main.go     ← CLI版メイン
-├── 🌐 cmd/web/main.go     ← WebSocketサーバー
+├── 🌐 cmd/web/main.go     ← WebSocketサーバー + 静的ファイル配信
 ├── ⚡ cmd/wasm/main.go    ← WASM版メイン
 ├── 🧠 graph/              ← 共通ロジック
-│   ├── state.go          ← AppState定義と管理
-│   ├── nodes.go          ← ノード実装
-│   ├── edges.go          ← エッジロジック
-│   └── engine.go         ← グラフ実行エンジン
+│   ├── state.go          ← AppState定義と管理（スレッドセーフ）
+│   ├── nodes.go          ← ノード実装（gjson使用）
+│   ├── edges.go          ← エッジロジック + 動的分岐制御  
+│   ├── engine.go         ← グラフ実行エンジン（動的ノード対応）
+│   └── utils/            ← 共通ユーティリティ (NEW!)
+│       ├── logger.go     ← 構造化ログ
+│       └── streaming.go  ← ストリーミングヘルパー
+├── 🔧 internal/          ← 内部パッケージ (NEW!)
+│   └── config/           
+│       └── config.go     ← viper統一設定管理
 ├── 🔍 tools/serpapi.go    ← SerpAPI検索クライアント
-├── 🎨 web/static/         ← Web UI（グラフ可視化）
+├── 🎨 web/static/         ← モジュラーWeb UI (NEW!)
+│   ├── index.html        ← メインHTML構造
+│   ├── css/styles.css    ← 全CSS統合
+│   └── js/               ← JavaScript責任分離
+│       ├── websocket.js  ← WebSocket管理
+│       ├── graph.js      ← グラフ表示・動的ノード
+│       └── app.js        ← メインアプリケーション
 ├── ⚡ wasm/               ← WASM UI（ブラウザネイティブ）
 ├── 📋 Makefile           ← ビルドスクリプト
 └── 📄 .env               ← 環境変数（リポジトリに含まず）
 ```
 
-## 🔧 主要コンポーネント
+## 🔧 主要コンポーネント (v1.1.0 アップデート)
 
-### AppState
+### 🧠 **AppState (強化版)**
 スレッドセーフな操作によるノード間共有状態管理:
 - ユーザー入力と意図分類
-- 検索クエリと結果
+- 検索クエリと結果（動的マッピング対応）
 - 最終レポート生成
-- エラーハンドリング
+- エラーハンドリング + ストリーミングコールバック
 
-### ノード
+### 🔄 **ノード (動的分岐対応)**
 - **ClassifyIntentAndTopic**: ユーザー意図の判定と調査トピック抽出
-- **GenerateSearchQueries**: 包括的調査のための多様な検索クエリ生成
-- **ExecuteParallelSearch**: goroutineを使用した並行検索実行
+- **GenerateSearchQueries**: gjsonライブラリによる堅牢なクエリ生成
+- **動的検索ノード**: クエリごとに動的生成される個別検索ノード（NEW!）
+- **MergeSearchResults**: 並行検索結果の自動統合ノード（NEW!）
 - **SynthesizeAndReport**: 結果を構造化レポートに統合
 
-### エンジン
+### ⚙️ **エンジン (動的ノード生成対応)**
 以下の機能でグラフ実行をオーケストレーション:
-- 無限ループ防止のための最大ステップ制限
+- 動的ノード生成とライフサイクル管理（NEW!）
+- "branch:search_query"シグナルによる分岐制御（NEW!）
+- 無限ループ防止のための最大ステップ制限（25ステップに拡張）
 - リアルタイム進捗のストリーミング更新
 - 実行パス追跡
 - エラー伝播とハンドリング
+
+### ⚡ **設定管理システム (NEW!)**
+viperベースの型安全な統一設定:
+```go
+type Config struct {
+    Server   ServerConfig   // ポート、ホスト設定
+    OpenAI   OpenAIConfig   // APIキー、モデル設定
+    SerpAPI  SerpAPIConfig  // 検索API設定
+    Graph    GraphConfig    // グラフ実行設定
+    Logging  LoggingConfig  // ログレベル設定
+}
+```
 
 ## 🛠️ Makefileコマンド
 
@@ -218,26 +274,57 @@ registry.RegisterNode("your_new_node", registry.YourNewNode)
 - **スレッドセーフ状態**: 並行操作が共有状態を安全に更新
 - **コンテキストキャンセレーション**: 適切なクリーンアップのための全操作でのコンテキストサポート
 
+## 📈 リリース履歴
+
+### 🎉 v1.1.0 (2025年) - 動的分岐システム + リファクタリング
+- ✨ **NEW**: 動的グラフ分岐・合流システム
+- ✨ **NEW**: gjsonライブラリによる堅牢なJSONパース
+- ✨ **NEW**: viper統一設定管理システム
+- ✨ **NEW**: モジュラーフロントエンド（CSS/JS分離）
+- ✨ **NEW**: `internal/config/`構造化
+- ⚡ Web UIリアルタイム分岐表示
+- 🔧 最大ステップ数25に拡張
+
+### 🚀 v1.0.0 (2025年) - 初回リリース
+- 🎯 意図ベースルーティング
+- 🌐 3つのインターフェース（CLI/Web/WASM）
+- 🔍 SerpAPI実検索統合
+- 📊 リアルタイムグラフ可視化
+- ⚡ 並行検索処理
+
 ## 🔒 ライセンス
 
 このプロジェクトは実演目的です。OpenAIの利用規約を遵守してください。
 
 ---
 
-# 🚀 Go Full-Stack Research Assistant
+# 🚀 Go Full-Stack Research Assistant v1.1.0
 
-A powerful autonomous research assistant built with **pure Go** across multiple platforms! Features graph-based processing, real-time streaming, and comprehensive research using parallel search operations.
+A powerful autonomous research assistant built with **pure Go** across multiple platforms! Features dynamic graph branching, real-time streaming, and comprehensive research using parallel search operations.
 
 ## 🎯 Multiple Interfaces Available
 
 | Interface | Description | Best For |
 |-----------|-------------|----------|
 | 🖥️ **CLI** | Terminal-based interface | Power users, scripting, server environments |
-| 🌐 **Web** | Real-time graph visualizer | Interactive analysis, team collaboration |  
+| 🌐 **Web** | Dynamic graph branching with real-time visualization | Interactive analysis, team collaboration |  
 | ⚡ **WASM** | Browser-native Go execution | Offline use, client-side processing |
 
 ## ✨ Features
 
+### 🔄 **NEW! Dynamic Graph Branching System (v1.1.0)**
+- **Intelligent Branching**: Dynamically generates independent nodes for each search query
+- **Parallel Execution**: All search queries execute simultaneously in parallel  
+- **Automatic Merging**: Individual search results automatically merged at convergence node
+- **Real-time Visualization**: Live display of branching and merging processes
+
+### 🏗️ **Refactored Architecture (v1.1.0)**
+- **Robust JSON Parsing**: Reliable parsing using gjson library
+- **Unified Configuration**: Type-safe configuration system with viper
+- **Modular Frontend**: Separated CSS/JavaScript responsibilities  
+- **Internal Packaging**: Structured with `internal/config/` organization
+
+### 🚀 **Core Features**
 - **Intent-based Routing**: Automatically classifies user input as research requests, Q&A, or general chat
 - **Autonomous Research**: Generates multiple search queries and executes them in parallel
 - **Comprehensive Reports**: Synthesizes search results into well-structured research reports
@@ -248,21 +335,37 @@ A powerful autonomous research assistant built with **pure Go** across multiple 
 
 ## 🏗️ Architecture
 
-The application uses a graph-based architecture inspired by LangGraph:
+Next-generation graph-based architecture inspired by LangGraph:
 
+### 🧠 **Core Components**
 1. **State Management**: Thread-safe `AppState` maintains context throughout execution
-2. **Nodes**: Individual processing units (intent classification, query generation, search, synthesis)
-3. **Edges**: Control flow logic that determines node transitions based on state
-4. **Engine**: Orchestrates graph execution with support for streaming updates
+2. **Nodes**: Individual processing units (intent classification, query generation, dynamic search, synthesis)
+3. **Edges**: Control flow logic with dynamic branching control + state-based transitions
+4. **Engine**: Orchestrates execution with streaming updates and dynamic node generation
 
-### Graph Flow
+### 🔄 **Dynamic Graph Flow (v1.1.0)**
 
 ```
 User Input → Classify Intent → [Based on Intent]
-                                ├─ Research → Generate Queries → Parallel Search → Synthesize Report
+                                ├─ Research → Generate Queries → 【Dynamic Branching System】
+                                │                              ├─ Search1 (parallel)
+                                │                              ├─ Search2 (parallel)  
+                                │                              ├─ Search3 (parallel)
+                                │                              └─ SearchN (parallel)
+                                │                                       ↓
+                                │                               【Auto Merge】
+                                │                                       ↓
+                                │                               Synthesize Report
                                 ├─ Q&A → Answer Directly
                                 └─ Chat → Handle Chat
 ```
+
+### 🎯 **Technology Stack**
+- **Backend**: Go 1.21+ / goroutines / sync
+- **JSON Parsing**: github.com/tidwall/gjson
+- **Configuration**: github.com/spf13/viper
+- **Frontend**: Pure JavaScript ES6+ / WebSocket / CSS3
+- **External APIs**: OpenAI GPT-4o / SerpAPI
 
 ## 📋 Prerequisites
 
@@ -355,46 +458,73 @@ make serve-wasm
 - "Hello, how are you?"
 - "Thanks for your help!"
 
-## 📁 Project Structure
+## 📁 Project Structure (v1.1.0 Refactored)
 
 ```
 📁 openai-go-demo/
 ├── 🖥️  cmd/cli/main.go     ← CLI version main
-├── 🌐 cmd/web/main.go     ← WebSocket server
+├── 🌐 cmd/web/main.go     ← WebSocket server + static file serving
 ├── ⚡ cmd/wasm/main.go    ← WASM version main
 ├── 🧠 graph/              ← Common logic
-│   ├── state.go          ← AppState definition and management
-│   ├── nodes.go          ← Node implementations
-│   ├── edges.go          ← Edge logic for transitions
-│   └── engine.go         ← Graph execution engine
+│   ├── state.go          ← AppState definition and management (thread-safe)
+│   ├── nodes.go          ← Node implementations (gjson-powered)
+│   ├── edges.go          ← Edge logic + dynamic branching control
+│   ├── engine.go         ← Graph execution engine (dynamic node support)
+│   └── utils/            ← Common utilities (NEW!)
+│       ├── logger.go     ← Structured logging
+│       └── streaming.go  ← Streaming helpers
+├── 🔧 internal/          ← Internal packages (NEW!)
+│   └── config/           
+│       └── config.go     ← Viper unified configuration
 ├── 🔍 tools/serpapi.go    ← SerpAPI search client
-├── 🎨 web/static/         ← Web UI (graph visualization)
+├── 🎨 web/static/         ← Modular Web UI (NEW!)
+│   ├── index.html        ← Main HTML structure
+│   ├── css/styles.css    ← Consolidated CSS
+│   └── js/               ← JavaScript separation of concerns
+│       ├── websocket.js  ← WebSocket management
+│       ├── graph.js      ← Graph display & dynamic nodes
+│       └── app.js        ← Main application logic
 ├── ⚡ wasm/               ← WASM UI (browser native)
 ├── 📋 Makefile           ← Build scripts
 └── 📄 .env               ← Environment variables (not in repo)
 ```
 
-## 🔧 Key Components
+## 🔧 Key Components (v1.1.0 Updated)
 
-### AppState
+### 🧠 **AppState (Enhanced)**
 Manages the shared state across all nodes with thread-safe operations:
 - User input and intent classification
-- Search queries and results
+- Search queries and results (with dynamic mapping support)
 - Final report generation
-- Error handling
+- Error handling + streaming callbacks
 
-### Nodes
+### 🔄 **Nodes (Dynamic Branching Support)**
 - **ClassifyIntentAndTopic**: Determines user intent and extracts research topics
-- **GenerateSearchQueries**: Creates diverse search queries for comprehensive research
-- **ExecuteParallelSearch**: Performs concurrent searches using goroutines
+- **GenerateSearchQueries**: Robust query generation using gjson library
+- **Dynamic Search Nodes**: Individual search nodes dynamically generated per query (NEW!)
+- **MergeSearchResults**: Automatic convergence node for parallel search results (NEW!)
 - **SynthesizeAndReport**: Combines results into structured reports
 
-### Engine
+### ⚙️ **Engine (Dynamic Node Generation Support)**
 Orchestrates graph execution with features:
-- Maximum step limit to prevent infinite loops
+- Dynamic node generation and lifecycle management (NEW!)
+- "branch:search_query" signal-based branching control (NEW!)
+- Maximum step limit to prevent infinite loops (expanded to 25 steps)
 - Streaming updates for real-time progress
 - Execution path tracking
 - Error propagation and handling
+
+### ⚡ **Configuration Management System (NEW!)**
+Viper-based type-safe unified configuration:
+```go
+type Config struct {
+    Server   ServerConfig   // Port, host settings
+    OpenAI   OpenAIConfig   // API key, model settings
+    SerpAPI  SerpAPIConfig  // Search API settings
+    Graph    GraphConfig    // Graph execution settings
+    Logging  LoggingConfig  // Log level settings
+}
+```
 
 ## 🛠️ Makefile Commands
 
@@ -443,6 +573,24 @@ Replace the simulated search in `ExecuteParallelSearch` with actual search APIs:
 - **Streaming Updates**: Progress updates don't block main execution
 - **Thread-Safe State**: Concurrent operations safely update shared state
 - **Context Cancellation**: All operations support context for proper cleanup
+
+## 📈 Release History
+
+### 🎉 v1.1.0 (2025) - Dynamic Branching System + Refactoring
+- ✨ **NEW**: Dynamic graph branching & convergence system
+- ✨ **NEW**: Robust JSON parsing with gjson library  
+- ✨ **NEW**: Viper unified configuration management
+- ✨ **NEW**: Modular frontend (CSS/JS separation)
+- ✨ **NEW**: Structured with `internal/config/`
+- ⚡ Web UI real-time branching visualization
+- 🔧 Maximum steps expanded to 25
+
+### 🚀 v1.0.0 (2025) - Initial Release
+- 🎯 Intent-based routing system
+- 🌐 Triple interface support (CLI/Web/WASM)
+- 🔍 SerpAPI real search integration
+- 📊 Real-time graph visualization
+- ⚡ Parallel search processing
 
 ## 🔒 License
 
