@@ -45,19 +45,33 @@ LangGraphにインスパイアされた次世代グラフベースアーキテ�
 
 ### 🔄 **動的グラフフロー (v1.1.0)**
 
-```
-ユーザー入力 → 意図分類 → [意図に基づく分岐]
-                          ├─ 調査 → クエリ生成 → 【動的分岐システム】
-                          │                    ├─ 検索1 (並行)
-                          │                    ├─ 検索2 (並行)
-                          │                    ├─ 検索3 (並行)
-                          │                    └─ 検索N (並行)
-                          │                             ↓
-                          │                      【自動合流】
-                          │                             ↓
-                          │                      レポート統合
-                          ├─ Q&A → 直接回答
-                          └─ 雑談 → チャット処理
+```mermaid
+flowchart TD
+    A["ユーザー入力"] --> B["意図分類"]
+    B --> C{"意図判定"}
+    C -->|調査| D["クエリ生成"]
+    C -->|Q&A| E["直接回答"]
+    C -->|雑談| F["チャット処理"]
+    
+    D --> G["動的分岐システム"]
+    G --> H1["検索1"]
+    G --> H2["検索2"] 
+    G --> H3["検索3"]
+    G --> H4["検索N"]
+    
+    H1 --> I["自動合流"]
+    H2 --> I
+    H3 --> I
+    H4 --> I
+    
+    I --> J["レポート統合"]
+    
+    style G fill:#e1f5fe
+    style I fill:#e8f5e8
+    style H1 fill:#fff3e0
+    style H2 fill:#fff3e0
+    style H3 fill:#fff3e0
+    style H4 fill:#fff3e0
 ```
 
 ### 🎯 **技術スタック**
@@ -345,19 +359,33 @@ Next-generation graph-based architecture inspired by LangGraph:
 
 ### 🔄 **Dynamic Graph Flow (v1.1.0)**
 
-```
-User Input → Classify Intent → [Based on Intent]
-                                ├─ Research → Generate Queries → 【Dynamic Branching System】
-                                │                              ├─ Search1 (parallel)
-                                │                              ├─ Search2 (parallel)  
-                                │                              ├─ Search3 (parallel)
-                                │                              └─ SearchN (parallel)
-                                │                                       ↓
-                                │                               【Auto Merge】
-                                │                                       ↓
-                                │                               Synthesize Report
-                                ├─ Q&A → Answer Directly
-                                └─ Chat → Handle Chat
+```mermaid
+flowchart TD
+    A["User Input"] --> B["Classify Intent"]
+    B --> C{"Intent Decision"}
+    C -->|Research| D["Generate Queries"]
+    C -->|Q&A| E["Answer Directly"]
+    C -->|Chat| F["Handle Chat"]
+    
+    D --> G["Dynamic Branching System"]
+    G --> H1["Search1"]
+    G --> H2["Search2"] 
+    G --> H3["Search3"]
+    G --> H4["SearchN"]
+    
+    H1 --> I["Auto Merge"]
+    H2 --> I
+    H3 --> I
+    H4 --> I
+    
+    I --> J["Synthesize Report"]
+    
+    style G fill:#e1f5fe
+    style I fill:#e8f5e8
+    style H1 fill:#fff3e0
+    style H2 fill:#fff3e0
+    style H3 fill:#fff3e0
+    style H4 fill:#fff3e0
 ```
 
 ### 🎯 **Technology Stack**
