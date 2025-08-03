@@ -53,25 +53,34 @@ flowchart TD
     C -->|Q&A| E["直接回答"]
     C -->|雑談| F["チャット処理"]
     
-    D --> G["動的分岐システム"]
-    G --> H1["検索1"]
-    G --> H2["検索2"] 
-    G --> H3["検索3"]
-    G --> H4["検索N"]
+    D --> G["🔄 動的分岐システム"]
     
-    H1 --> I["自動合流"]
+    subgraph parallel ["⚡ 並列実行エリア"]
+        H1["🔍 検索1"]
+        H2["🔍 検索2"] 
+        H3["🔍 検索3"]
+        H4["🔍 検索N"]
+    end
+    
+    G --> H1
+    G --> H2
+    G --> H3
+    G --> H4
+    
+    H1 --> I["🔗 自動合流"]
     H2 --> I
     H3 --> I
     H4 --> I
     
-    I --> J["レポート統合"]
+    I --> J["📝 レポート統合"]
     
-    style G fill:#e1f5fe
-    style I fill:#e8f5e8
-    style H1 fill:#fff3e0
-    style H2 fill:#fff3e0
-    style H3 fill:#fff3e0
-    style H4 fill:#fff3e0
+    style G fill:#e1f5fe,stroke:#0277bd,stroke-width:3px
+    style I fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    style parallel fill:#fff8e1,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    style H1 fill:#fff3e0,stroke:#ff9800
+    style H2 fill:#fff3e0,stroke:#ff9800
+    style H3 fill:#fff3e0,stroke:#ff9800
+    style H4 fill:#fff3e0,stroke:#ff9800
 ```
 
 ### 🎯 **技術スタック**
@@ -367,25 +376,34 @@ flowchart TD
     C -->|Q&A| E["Answer Directly"]
     C -->|Chat| F["Handle Chat"]
     
-    D --> G["Dynamic Branching System"]
-    G --> H1["Search1"]
-    G --> H2["Search2"] 
-    G --> H3["Search3"]
-    G --> H4["SearchN"]
+    D --> G["🔄 Dynamic Branching System"]
     
-    H1 --> I["Auto Merge"]
+    subgraph parallel ["⚡ Parallel Execution Area"]
+        H1["🔍 Search1"]
+        H2["🔍 Search2"] 
+        H3["🔍 Search3"]
+        H4["🔍 SearchN"]
+    end
+    
+    G --> H1
+    G --> H2
+    G --> H3
+    G --> H4
+    
+    H1 --> I["🔗 Auto Merge"]
     H2 --> I
     H3 --> I
     H4 --> I
     
-    I --> J["Synthesize Report"]
+    I --> J["📝 Synthesize Report"]
     
-    style G fill:#e1f5fe
-    style I fill:#e8f5e8
-    style H1 fill:#fff3e0
-    style H2 fill:#fff3e0
-    style H3 fill:#fff3e0
-    style H4 fill:#fff3e0
+    style G fill:#e1f5fe,stroke:#0277bd,stroke-width:3px
+    style I fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    style parallel fill:#fff8e1,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    style H1 fill:#fff3e0,stroke:#ff9800
+    style H2 fill:#fff3e0,stroke:#ff9800
+    style H3 fill:#fff3e0,stroke:#ff9800
+    style H4 fill:#fff3e0,stroke:#ff9800
 ```
 
 ### 🎯 **Technology Stack**
